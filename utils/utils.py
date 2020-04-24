@@ -65,8 +65,16 @@ def aspectaware_resize_padding(image, width, height, interpolation=None, means=N
     return canvas, new_w, new_h, old_w, old_h, padding_w, padding_h,
 
 
-def preprocess(*image_path, max_size=512, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
-    ori_imgs = [cv2.imread(img_path) for img_path in image_path]
+def load_image(img_or_path):
+    if isinstance(img_or_path, np.ndarray):
+        return img_or_path
+    else:  # isinstance(img_or_path, str/Path)
+        return cv2.imread(img_or_path)
+
+
+def preprocess(*img_or_paths, max_size=512, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)):
+    ori_imgs = [load_image(img_or_path) for img_or_path in img_or_paths]
+
     normalized_imgs = [(img / 255 - mean) / std for img in ori_imgs]
     imgs_meta = [aspectaware_resize_padding(img[..., ::-1], max_size, max_size,
                                             means=None) for img in normalized_imgs]
@@ -237,3 +245,18 @@ def variance_scaling_(tensor, gain=1.):
     std = math.sqrt(gain / float(fan_in))
 
     return _no_grad_normal_(tensor, 0., std)
+
+
+def xyxy_to_xywh(boxes_xyxy):
+    if isinstance(boxes_xyxy, torch.Tensor):
+        boxes_xywh = boxes_xyxy.clone()
+    elif isinstance(boxes_xyxy, np.ndarray) or isinstance(boxes_xyxy, list):
+        boxes_xywh = boxes_xyxy.copy()
+
+    for i in range(len(boxes_xyxy)):
+        boxes_xywh[i][:, 0] = (boxes_xyxy[i][:, 0] + boxes_xyxy[i][:, 2])/2.
+        boxes_xywh[i][:, 1] = (boxes_xyxy[i][:, 1] + boxes_xyxy[i][:, 3])/2.
+        boxes_xywh[i][:, 2] = boxes_xyxy[i][:, 2] - boxes_xyxy[i][:, 0]
+        boxes_xywh[i][:, 3] = boxes_xyxy[i][:, 3] - boxes_xyxy[i][:, 1]
+
+    return boxes_xywh
